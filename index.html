@@ -159,9 +159,24 @@
             errorContainer.classList.remove('hidden');
         }
         
-        /** Normalizes a line from an ads.txt file for comparison. */
-        function normalizeLine(line) {
-            return line.replace(/\s/g, '').toLowerCase();
+        /**
+         * Creates a consistent matching key from the first 3 fields of an ads.txt line.
+         * This ignores the optional 4th field (TAG ID) and any comments.
+         * @param {string} line - A single line from an ads.txt file.
+         * @returns {string|null} A normalized string key or null if the line is invalid.
+         */
+        function getMatchKey(line) {
+            // Remove any comments first
+            const withoutComment = line.split('#')[0];
+            const fields = withoutComment.split(',').map(f => f.trim());
+            
+            // A valid data line must have at least 3 fields
+            if (fields.length < 3) {
+                return null;
+            }
+            
+            // Take the first 3 fields, remove all whitespace, join, and convert to lowercase
+            return fields.slice(0, 3).join(',').replace(/\s/g, '').toLowerCase();
         }
 
         /** Creates a delay. */
@@ -184,12 +199,12 @@
         }
 
         /** Processes a single website check. */
-        async function processSite(site, normalizedLineToFind) {
+        async function processSite(site, lineToFindKey) {
              try {
                  const domain = new URL('https://' + site.replace(/^https?:\/\//, '')).hostname;
                  const fileType = appAdsToggle.checked ? 'app-ads.txt' : 'ads.txt';
                  const targetUrl = `https://${domain}/${fileType}`;
-                 const proxyUrl = `https://thingproxy.freeboard.io/fetch/${targetUrl}`;
+                 const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
                  
                  const response = await fetchWithRetries(proxyUrl);
                  
@@ -201,7 +216,8 @@
                  }
 
                  const text = await response.text();
-                 const found = text.split('\n').some(line => normalizeLine(line) === normalizedLineToFind);
+                 // Check if any line in the file matches the 3-field key
+                 const found = text.split('\n').some(line => getMatchKey(line) === lineToFindKey);
                  
                  return found
                     ? { site, status: 'Found', statusClass: 'status-found' }
@@ -223,6 +239,12 @@
                 return;
             }
             
+            const lineToFindKey = getMatchKey(lineToFind);
+            if (!lineToFindKey) {
+                showError('The "Line to Find" is not a valid ads.txt entry. It must have at least 3 comma-separated fields.');
+                return;
+            }
+            
             resetState();
             state = 'running';
             updateUIForState();
@@ -231,7 +253,6 @@
 
             sitesQueue = [...websites];
             const totalSites = sitesQueue.length;
-            const normalizedLineToFind = normalizeLine(lineToFind);
             
             for (let i = 0; i < totalSites; i++) {
                 // Handle pausing
@@ -247,7 +268,7 @@
                 const site = sitesQueue[i];
                 progressLabel.textContent = `Checking ${i + 1} of ${totalSites}: ${site}...`;
                 
-                const result = await processSite(site, normalizedLineToFind);
+                const result = await processSite(site, lineToFindKey);
 
                 const row = `<tr>
                     <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${result.site}</td>
