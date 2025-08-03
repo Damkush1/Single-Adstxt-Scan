@@ -24,6 +24,10 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        .status-found { color: #16a34a; font-weight: 600; }
+        .status-not-found { color: #ca8a04; font-weight: 600; }
+        .status-file-missing { color: #ea580c; font-weight: 600; }
+        .status-error { color: #dc2626; font-weight: 600; }
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen py-8">
@@ -35,14 +39,14 @@
             </div>
             
             <!-- Input Section -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div class="space-y-6 mb-6">
                 <div>
-                    <label for="adsLineInput" class="block text-sm font-medium text-gray-700 mb-1">Ads.txt Line to Find</label>
-                    <input type="text" id="adsLineInput" placeholder="e.g., google.com, pub-123, DIRECT" class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <label for="adsLineInput" class="block text-sm font-medium text-gray-700 mb-1">1. Ads.txt Line to Find</label>
+                    <input type="text" id="adsLineInput" placeholder="google.com, pub-12345, DIRECT, f08c47fec0942fa0" class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
                 <div>
-                    <label for="websitesList" class="block text-sm font-medium text-gray-700 mb-1">Websites (one per line)</label>
-                    <textarea id="websitesList" rows="5" placeholder="example.com&#10;anothersite.org" class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                    <label for="websitesList" class="block text-sm font-medium text-gray-700 mb-1">2. Websites (one per line)</label>
+                    <textarea id="websitesList" rows="6" placeholder="example.com&#10;anothersite.org&#10;webaudit.co" class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
                 </div>
             </div>
 
@@ -51,10 +55,20 @@
                     <input type="checkbox" id="appAdsToggle" class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
                     <span class="ml-2 text-gray-700">Check for app-ads.txt</span>
                 </label>
-                <button id="checkButton" class="w-full sm:w-auto bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-transform transform hover:scale-105 active:scale-100 flex items-center justify-center">
-                    <span id="button-text">Check Websites</span>
-                    <div id="loader" class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6 ml-3 hidden"></div>
-                </button>
+                <div id="controls" class="flex items-center gap-4">
+                    <button id="checkButton" class="bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 flex items-center justify-center">
+                        <i class="fas fa-play mr-2"></i>Start Scan
+                    </button>
+                    <button id="pauseButton" class="bg-yellow-500 text-white font-semibold px-8 py-3 rounded-lg hover:bg-yellow-600 hidden items-center justify-center">
+                        <i class="fas fa-pause mr-2"></i>Pause
+                    </button>
+                    <button id="resumeButton" class="bg-green-500 text-white font-semibold px-8 py-3 rounded-lg hover:bg-green-600 hidden items-center justify-center">
+                        <i class="fas fa-play mr-2"></i>Resume
+                    </button>
+                    <button id="cancelButton" class="bg-gray-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-gray-700 hidden items-center justify-center">
+                        <i class="fas fa-stop mr-2"></i>Cancel
+                    </button>
+                </div>
             </div>
             
             <!-- Progress Bar -->
@@ -68,20 +82,23 @@
             <!-- Results Section -->
             <div id="resultsContainer" class="hidden mt-8">
                 <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-2xl font-bold text-gray-800">Results</h2>
+                    <h2 id="resultsTitle" class="text-2xl font-bold text-gray-800">Results</h2>
                      <button id="downloadCsvBtn" class="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition text-sm flex items-center">
                         <i class="fas fa-download mr-2"></i>Download CSV
                     </button>
                 </div>
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div>
-                        <h3 class="text-lg font-semibold text-green-600 mb-2">Found On</h3>
-                        <ul id="foundList" class="list-disc list-inside bg-green-50 p-4 rounded-lg text-green-800"></ul>
-                    </div>
-                    <div>
-                        <h3 class="text-lg font-semibold text-red-600 mb-2">Not Found On / Error</h3>
-                        <ul id="notFoundList" class="list-disc list-inside bg-red-50 p-4 rounded-lg text-red-800"></ul>
-                    </div>
+                <div class="overflow-x-auto bg-white rounded-lg shadow max-h-96">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50 sticky top-0">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Website</th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resultsTableBody" class="bg-white divide-y divide-gray-200">
+                            <!-- Results will be inserted here -->
+                        </tbody>
+                    </table>
                 </div>
             </div>
 
@@ -93,33 +110,50 @@
     <script>
         // --- Element Selection ---
         const checkButton = document.getElementById('checkButton'),
+            pauseButton = document.getElementById('pauseButton'),
+            resumeButton = document.getElementById('resumeButton'),
+            cancelButton = document.getElementById('cancelButton'),
             adsLineInput = document.getElementById('adsLineInput'),
             websitesList = document.getElementById('websitesList'),
             appAdsToggle = document.getElementById('appAdsToggle'),
             resultsContainer = document.getElementById('resultsContainer'),
-            foundList = document.getElementById('foundList'),
-            notFoundList = document.getElementById('notFoundList'),
+            resultsTableBody = document.getElementById('resultsTableBody'),
+            resultsTitle = document.getElementById('resultsTitle'),
             errorContainer = document.getElementById('errorContainer'),
-            loader = document.getElementById('loader'),
-            buttonText = document.getElementById('button-text'),
             progressContainer = document.getElementById('progressContainer'),
             progressBar = document.getElementById('progressBar'),
             progressLabel = document.getElementById('progressLabel'),
             downloadCsvBtn = document.getElementById('downloadCsvBtn');
 
+        // --- State Management ---
+        let state = 'idle'; // idle, running, paused, cancelled, complete
+        let sitesQueue = [];
         let resultsForCSV = [];
+        const SCAN_DELAY_MS = 2000; // 2-second delay between requests
 
         /** Resets UI state before a new check. */
         function resetState() {
             resultsContainer.classList.add('hidden');
             errorContainer.classList.add('hidden');
             progressContainer.classList.add('hidden');
-            foundList.innerHTML = '';
-            notFoundList.innerHTML = '';
+            resultsTableBody.innerHTML = '';
             resultsForCSV = [];
+            sitesQueue = [];
+            state = 'idle';
+            updateUIForState();
         }
 
-        /** Displays an error message. */
+        /** Updates buttons and inputs based on the current state */
+        function updateUIForState() {
+            checkButton.classList.toggle('hidden', state !== 'idle');
+            pauseButton.classList.toggle('hidden', state !== 'running');
+            resumeButton.classList.toggle('hidden', state !== 'paused');
+            cancelButton.classList.toggle('hidden', state === 'idle' || state === 'complete');
+            adsLineInput.disabled = state !== 'idle';
+            websitesList.disabled = state !== 'idle';
+        }
+
+        /** Displays a validation or system error message. */
         function showError(message) {
             errorContainer.textContent = message;
             errorContainer.classList.remove('hidden');
@@ -130,79 +164,118 @@
             return line.replace(/\s/g, '').toLowerCase();
         }
 
-        /** Main function to start the checking process. */
-        async function startCheck() {
-            resetState();
+        /** Creates a delay. */
+        const delay = ms => new Promise(res => setTimeout(res, ms));
+
+        /** Fetches a URL with retry logic. */
+        async function fetchWithRetries(url, retries = 2, backoff = 500) {
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(url);
+                    if (response.status === 429 || response.status >= 500) {
+                         throw new Error(`Server error: ${response.status}`);
+                    }
+                    return response;
+                } catch (error) {
+                    if (i === retries - 1) throw error;
+                    await delay(backoff * Math.pow(2, i));
+                }
+            }
+        }
+
+        /** Processes a single website check. */
+        async function processSite(site, normalizedLineToFind) {
+             try {
+                 const domain = new URL('https://' + site.replace(/^https?:\/\//, '')).hostname;
+                 const fileType = appAdsToggle.checked ? 'app-ads.txt' : 'ads.txt';
+                 const targetUrl = `https://${domain}/${fileType}`;
+                 const proxyUrl = `https://thingproxy.freeboard.io/fetch/${targetUrl}`;
+                 
+                 const response = await fetchWithRetries(proxyUrl);
+                 
+                 if (!response.ok) {
+                    if (response.status === 404) {
+                        return { site, status: 'File Does Not Exist (404)', statusClass: 'status-file-missing' };
+                    }
+                    throw new Error(`HTTP error: ${response.status}`);
+                 }
+
+                 const text = await response.text();
+                 const found = text.split('\n').some(line => normalizeLine(line) === normalizedLineToFind);
+                 
+                 return found
+                    ? { site, status: 'Found', statusClass: 'status-found' }
+                    : { site, status: 'Not Found in File', statusClass: 'status-not-found' };
+
+             } catch (error) {
+                 console.error(`Error checking ${site}:`, error);
+                 return { site, status: 'Fetch Error', statusClass: 'status-error' };
+             }
+        }
+
+        /** Main function to run the scanner. */
+        async function runScanner() {
             const lineToFind = adsLineInput.value.trim();
             const websites = websitesList.value.split('\n').map(w => w.trim()).filter(w => w);
 
-            if (!lineToFind) {
-                showError('Please provide the ads.txt line to find.');
+            if (!lineToFind || websites.length === 0) {
+                showError('Please provide both an ads.txt line and a list of websites.');
                 return;
             }
-            if (websites.length === 0) {
-                showError('Please provide a list of websites to check.');
-                return;
-            }
-
-            setLoading(true);
+            
+            resetState();
+            state = 'running';
+            updateUIForState();
             progressContainer.classList.remove('hidden');
-            progressBar.style.width = '0%';
+            resultsContainer.classList.remove('hidden');
 
+            sitesQueue = [...websites];
+            const totalSites = sitesQueue.length;
             const normalizedLineToFind = normalizeLine(lineToFind);
-            let sitesProcessed = 0;
-
-            for (const site of websites) {
-                let status = 'Not Found';
-                let reason = '';
-                try {
-                    const domain = new URL('https://' + site.replace(/^https?:\/\//, '')).hostname;
-                    const fileName = appAdsToggle.checked ? 'app-ads.txt' : 'ads.txt';
-                    const adsTxtUrl = `https://${domain}/${fileName}`;
-                    const proxyUrl = `https://cors-anywhere.herokuapp.com/${adsTxtUrl}`;
-                    
-                    const response = await fetch(proxyUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
-                    
-                    if (response.ok) {
-                        const text = await response.text();
-                        const found = text.split('\n').some(line => normalizeLine(line) === normalizedLineToFind);
-                        if (found) {
-                            status = 'Found';
-                            foundList.innerHTML += `<li>${domain}</li>`;
-                        } else {
-                            reason = ' (Line not in file)';
-                        }
-                    } else {
-                        reason = ` (HTTP ${response.status})`;
-                    }
-                } catch (error) {
-                    console.error(`Error checking ${site}:`, error);
-                    reason = ' (Invalid URL or Network Error)';
+            
+            for (let i = 0; i < totalSites; i++) {
+                // Handle pausing
+                while (state === 'paused') {
+                    await delay(500); // Check every half second if we should resume
+                }
+                // Handle cancellation
+                if (state === 'cancelled') {
+                    progressLabel.textContent = `Scan cancelled after ${i} checks.`;
+                    break;
                 }
 
-                if (status !== 'Found') {
-                    notFoundList.innerHTML += `<li>${site}${reason}</li>`;
+                const site = sitesQueue[i];
+                progressLabel.textContent = `Checking ${i + 1} of ${totalSites}: ${site}...`;
+                
+                const result = await processSite(site, normalizedLineToFind);
+
+                const row = `<tr>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${result.site}</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm ${result.statusClass}">${result.status}</td>
+                </tr>`;
+                resultsTableBody.insertAdjacentHTML('beforeend', row);
+                resultsForCSV.push({ website: result.site, status: result.status });
+                
+                progressBar.style.width = `${((i + 1) / totalSites) * 100}%`;
+                
+                // Don't delay after the last item
+                if (i < totalSites - 1) {
+                    await delay(SCAN_DELAY_MS);
                 }
-                
-                resultsForCSV.push({ website: site, status: status, reason: reason.trim() });
-                
-                sitesProcessed++;
-                const progress = (sitesProcessed / websites.length) * 100;
-                progressBar.style.width = `${progress}%`;
-                progressLabel.textContent = `Checking ${sitesProcessed} of ${websites.length}...`;
             }
 
-            setLoading(false);
-            resultsContainer.classList.remove('hidden');
+            if (state !== 'cancelled') {
+                state = 'complete';
+                progressLabel.textContent = `Scan complete. Checked ${totalSites} websites.`;
+                resultsTitle.textContent = `Results (${totalSites} sites)`;
+            }
+            updateUIForState();
         }
 
         function downloadCSV() {
             if (resultsForCSV.length === 0) return;
-            
-            let csvContent = '"Website","Status","Reason"\n';
-            resultsForCSV.forEach(result => {
-                csvContent += `"${result.website}","${result.status}","${result.reason}"\n`;
-            });
+            let csvContent = '"Website","Status"\n';
+            resultsForCSV.forEach(r => { csvContent += `"${r.website}","${r.status}"\n`; });
             
             const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement("a");
@@ -215,14 +288,21 @@
             document.body.removeChild(link);
         }
 
-        function setLoading(isLoading) {
-            checkButton.disabled = isLoading;
-            buttonText.classList.toggle('hidden', isLoading);
-            loader.classList.toggle('hidden', !isLoading);
-        }
-
         // --- Event Listeners ---
-        checkButton.addEventListener('click', startCheck);
+        checkButton.addEventListener('click', runScanner);
+        pauseButton.addEventListener('click', () => {
+            state = 'paused';
+            updateUIForState();
+            progressLabel.textContent += ' (Paused)';
+        });
+        resumeButton.addEventListener('click', () => {
+            state = 'running';
+            updateUIForState();
+        });
+        cancelButton.addEventListener('click', () => {
+            state = 'cancelled';
+            updateUIForState();
+        });
         downloadCsvBtn.addEventListener('click', downloadCSV);
 
     </script>
