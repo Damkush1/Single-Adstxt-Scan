@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bulk Ads.txt Line Checker</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .loader {
+            border-top-color: #3498db;
+            -webkit-animation: spin 1s linear infinite;
+            animation: spin 1s linear infinite;
+        }
+        @-webkit-keyframes spin {
+            0% { -webkit-transform: rotate(0deg); }
+            100% { -webkit-transform: rotate(360deg); }
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen py-8">
+    <div class="container mx-auto p-4 sm:p-6 md:p-8 max-w-4xl w-full">
+        <div class="bg-white rounded-2xl shadow-lg p-6 md:p-8">
+            <div class="text-center mb-6">
+                <h1 class="text-3xl sm:text-4xl font-bold text-gray-800">Bulk Ads.txt Line Checker</h1>
+                <p class="text-gray-500 mt-2">Check for a single ads.txt line across multiple websites.</p>
+            </div>
+            
+            <!-- Input Section -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div>
+                    <label for="adsLineInput" class="block text-sm font-medium text-gray-700 mb-1">Ads.txt Line to Find</label>
+                    <input type="text" id="adsLineInput" placeholder="e.g., google.com, pub-123, DIRECT" class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                </div>
+                <div>
+                    <label for="websitesList" class="block text-sm font-medium text-gray-700 mb-1">Websites (one per line)</label>
+                    <textarea id="websitesList" rows="5" placeholder="example.com&#10;anothersite.org" class="w-full px-4 py-3 bg-gray-50 border-2 border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"></textarea>
+                </div>
+            </div>
+
+            <div class="flex flex-col items-center justify-center mb-6">
+                 <label for="appAdsToggle" class="flex items-center cursor-pointer mb-4">
+                    <input type="checkbox" id="appAdsToggle" class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
+                    <span class="ml-2 text-gray-700">Check for app-ads.txt</span>
+                </label>
+                <button id="checkButton" class="w-full sm:w-auto bg-blue-600 text-white font-semibold px-8 py-3 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50 transition-transform transform hover:scale-105 active:scale-100 flex items-center justify-center">
+                    <span id="button-text">Check Websites</span>
+                    <div id="loader" class="loader ease-linear rounded-full border-4 border-t-4 border-gray-200 h-6 w-6 ml-3 hidden"></div>
+                </button>
+            </div>
+            
+            <!-- Progress Bar -->
+            <div id="progressContainer" class="hidden my-4">
+                <p id="progressLabel" class="text-center text-sm text-gray-600 mb-1">Checking...</p>
+                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                    <div id="progressBar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsContainer" class="hidden mt-8">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-2xl font-bold text-gray-800">Results</h2>
+                     <button id="downloadCsvBtn" class="bg-green-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-50 transition text-sm flex items-center">
+                        <i class="fas fa-download mr-2"></i>Download CSV
+                    </button>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-green-600 mb-2">Found On</h3>
+                        <ul id="foundList" class="list-disc list-inside bg-green-50 p-4 rounded-lg text-green-800"></ul>
+                    </div>
+                    <div>
+                        <h3 class="text-lg font-semibold text-red-600 mb-2">Not Found On / Error</h3>
+                        <ul id="notFoundList" class="list-disc list-inside bg-red-50 p-4 rounded-lg text-red-800"></ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Error Message Display -->
+            <div id="errorContainer" class="hidden bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg" role="alert"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- Element Selection ---
+        const checkButton = document.getElementById('checkButton'),
+            adsLineInput = document.getElementById('adsLineInput'),
+            websitesList = document.getElementById('websitesList'),
+            appAdsToggle = document.getElementById('appAdsToggle'),
+            resultsContainer = document.getElementById('resultsContainer'),
+            foundList = document.getElementById('foundList'),
+            notFoundList = document.getElementById('notFoundList'),
+            errorContainer = document.getElementById('errorContainer'),
+            loader = document.getElementById('loader'),
+            buttonText = document.getElementById('button-text'),
+            progressContainer = document.getElementById('progressContainer'),
+            progressBar = document.getElementById('progressBar'),
+            progressLabel = document.getElementById('progressLabel'),
+            downloadCsvBtn = document.getElementById('downloadCsvBtn');
+
+        let resultsForCSV = [];
+
+        /** Resets UI state before a new check. */
+        function resetState() {
+            resultsContainer.classList.add('hidden');
+            errorContainer.classList.add('hidden');
+            progressContainer.classList.add('hidden');
+            foundList.innerHTML = '';
+            notFoundList.innerHTML = '';
+            resultsForCSV = [];
+        }
+
+        /** Displays an error message. */
+        function showError(message) {
+            errorContainer.textContent = message;
+            errorContainer.classList.remove('hidden');
+        }
+        
+        /** Normalizes a line from an ads.txt file for comparison. */
+        function normalizeLine(line) {
+            return line.replace(/\s/g, '').toLowerCase();
+        }
+
+        /** Main function to start the checking process. */
+        async function startCheck() {
+            resetState();
+            const lineToFind = adsLineInput.value.trim();
+            const websites = websitesList.value.split('\n').map(w => w.trim()).filter(w => w);
+
+            if (!lineToFind) {
+                showError('Please provide the ads.txt line to find.');
+                return;
+            }
+            if (websites.length === 0) {
+                showError('Please provide a list of websites to check.');
+                return;
+            }
+
+            setLoading(true);
+            progressContainer.classList.remove('hidden');
+            progressBar.style.width = '0%';
+
+            const normalizedLineToFind = normalizeLine(lineToFind);
+            let sitesProcessed = 0;
+
+            for (const site of websites) {
+                let status = 'Not Found';
+                let reason = '';
+                try {
+                    const domain = new URL('https://' + site.replace(/^https?:\/\//, '')).hostname;
+                    const fileName = appAdsToggle.checked ? 'app-ads.txt' : 'ads.txt';
+                    const adsTxtUrl = `https://${domain}/${fileName}`;
+                    const proxyUrl = `https://cors-anywhere.herokuapp.com/${adsTxtUrl}`;
+                    
+                    const response = await fetch(proxyUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+                    
+                    if (response.ok) {
+                        const text = await response.text();
+                        const found = text.split('\n').some(line => normalizeLine(line) === normalizedLineToFind);
+                        if (found) {
+                            status = 'Found';
+                            foundList.innerHTML += `<li>${domain}</li>`;
+                        } else {
+                            reason = ' (Line not in file)';
+                        }
+                    } else {
+                        reason = ` (HTTP ${response.status})`;
+                    }
+                } catch (error) {
+                    console.error(`Error checking ${site}:`, error);
+                    reason = ' (Invalid URL or Network Error)';
+                }
+
+                if (status !== 'Found') {
+                    notFoundList.innerHTML += `<li>${site}${reason}</li>`;
+                }
+                
+                resultsForCSV.push({ website: site, status: status, reason: reason.trim() });
+                
+                sitesProcessed++;
+                const progress = (sitesProcessed / websites.length) * 100;
+                progressBar.style.width = `${progress}%`;
+                progressLabel.textContent = `Checking ${sitesProcessed} of ${websites.length}...`;
+            }
+
+            setLoading(false);
+            resultsContainer.classList.remove('hidden');
+        }
+
+        function downloadCSV() {
+            if (resultsForCSV.length === 0) return;
+            
+            let csvContent = '"Website","Status","Reason"\n';
+            resultsForCSV.forEach(result => {
+                csvContent += `"${result.website}","${result.status}","${result.reason}"\n`;
+            });
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            const url = URL.createObjectURL(blob);
+            link.setAttribute("href", url);
+            link.setAttribute("download", "bulk_line_check_results.csv");
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        function setLoading(isLoading) {
+            checkButton.disabled = isLoading;
+            buttonText.classList.toggle('hidden', isLoading);
+            loader.classList.toggle('hidden', !isLoading);
+        }
+
+        // --- Event Listeners ---
+        checkButton.addEventListener('click', startCheck);
+        downloadCsvBtn.addEventListener('click', downloadCSV);
+
+    </script>
+</body>
+</html>
